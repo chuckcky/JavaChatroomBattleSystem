@@ -9,6 +9,7 @@ import java.util.List;
 public class GameStateFormatter {
 
     //把游戏状态转成一行文本
+    //状态序列化,用`|`分隔文本
     public static String format(Game game, Player p1, Player p2, int currentTurn,Player player) {
         StringBuilder sb = new StringBuilder();
 

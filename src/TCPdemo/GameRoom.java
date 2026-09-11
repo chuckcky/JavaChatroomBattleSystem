@@ -1,17 +1,16 @@
 package TCPdemo;
 
 
-import model.Player;
+import model.*;
 import service.Game;
-import model.CardFactory;
-import model.Minion;
 
 import java.util.List;
 import java.util.Random;
 
+//管理单局的游戏状态
+//单局状态机
 public class GameRoom {
     private String roomId;
-    //房主
     private ClientHandler player1Handler;
     private ClientHandler player2Handler;
     //卡牌游戏引擎
@@ -90,7 +89,7 @@ public class GameRoom {
     }
 
     //处理玩家出牌
-    public synchronized void handlePlayCard(ClientHandler handler, int cardIndex, String targetInfo) {
+    public synchronized void handlePlayCard(ClientHandler handler, int cardIndex, String target) {
         //只有当前回合玩家才能操作
         ClientHandler currentHandler = (currentTurn == 0) ? player1Handler : player2Handler;
         if (handler != currentHandler) {
@@ -109,31 +108,37 @@ public class GameRoom {
             sendMessage(handler, "你不在这个房间里");
             return;
         }
-
+        //校验卡牌是否合法
+        if (cardIndex < 0 || cardIndex >= currentPlayer.getHand().size()) {
+            sendMessage(handler, "手牌序号无效");
+            return;
+        }
         Player opponent = game.getOpponent(currentPlayer);
         Minion targetMinion = null;
-
         //如果是单体法术，解析目标
-        if (targetInfo != null && !targetInfo.isEmpty()) {
-            try {
-                int targetIdx = Integer.parseInt(targetInfo);
-                List<Minion> enemyField = opponent.getField();
-                if (targetIdx >= 0 && targetIdx < enemyField.size()) {
-                    targetMinion = enemyField.get(targetIdx);
-                } else {
-                    sendMessage(handler, "目标随从不存在");
+        if (target != null && !target.isEmpty()) {
+            Card card = currentPlayer.getHand().get(cardIndex);
+            if (card instanceof SingleAttackCard) {
+                try {
+                    int targetIndex = Integer.parseInt(target);
+                    List<Minion> fieldMinions = opponent.getField();
+                    if (targetIndex >= 0 && targetIndex < fieldMinions.size()) {
+                        targetMinion = fieldMinions.get(targetIndex);
+                    } else {
+                        sendMessage(handler, "目标随从不存在");
+                        return;
+                    }
+                } catch (NumberFormatException e) {
+                    sendMessage(handler, "目标格式错误");
                     return;
                 }
-            } catch (NumberFormatException e) {
-                sendMessage(handler, "目标格式错误");
-                return;
             }
         }
 
         //执行出牌
-        boolean success = game.playCardFromNetwork(currentPlayer, cardIndex, opponent, targetMinion);
+        boolean success = game.playCard(currentPlayer, cardIndex, opponent, targetMinion);
         if (!success) {
-            sendMessage(handler, "出牌失败，请检查费用或手牌序号");
+            sendMessage(handler, "出牌失败，请检查费用或手牌序号或或单体法术是否指定了目标");
             return;
         }
 
@@ -147,7 +152,7 @@ public class GameRoom {
         broadcastGameState();
 
         //还有费用或者手牌时由玩家自行决定继续出牌或输入end结束
-        if (game.hasAttackableMinion(currentPlayer)) {
+        if (game.haveAttackableMinion(currentPlayer)) {
             sendMessage(handler, "【战斗阶段】可攻击（attack 随从序号 h 或 attack 随从序号 目标序号），或继续出牌（play 序号）/ 结束回合（end）");
         } else {
             sendMessage(handler, "可以继续出牌（play 序号）或结束回合（end）");
@@ -175,12 +180,12 @@ public class GameRoom {
         }
 
         //检查是否还有可攻击的随从
-        if (!game.hasAttackableMinion(currentPlayer)) {
+        if (!game.haveAttackableMinion(currentPlayer)) {
             sendMessage(handler, "没有可攻击的随从，请出牌（play 序号）或结束回合（end）");
             return;
         }
 
-        boolean success = game.attackFromNetwork(currentPlayer, minionIndex, targetType, targetIndex);
+        boolean success = game.attack(currentPlayer, minionIndex, targetType, targetIndex);
         if (!success) {
             sendMessage(handler, "攻击失败，请检查随从序号或目标");
             return;
@@ -196,7 +201,7 @@ public class GameRoom {
         broadcastGameState();
 
         //检查是否还有可攻击的随从（回合只由 end 指令结束）
-        if (game.hasAttackableMinion(currentPlayer)) {
+        if (game.haveAttackableMinion(currentPlayer)) {
             sendMessage(handler, "继续攻击（attack 随从序号 h 或 attack 随从序号 目标序号），或结束回合（end）");
         } else {
             sendMessage(handler, "所有随从已攻击完毕，请出牌（play 序号）或结束回合（end）");
@@ -224,7 +229,7 @@ public class GameRoom {
         }
 
         //结束当前回合
-        game.endTurnFromNetwork();
+        game.endTurn();
 
         //检查游戏是否结束
         if (game.isGameOver()) {
@@ -276,10 +281,8 @@ public class GameRoom {
 
     //通知当前玩家行动
     private void notifyCurrentPlayerTurn() {
-        Player currentPlayer = (currentTurn == 0) ? player1 : player2;
         ClientHandler currentHandler = (currentTurn == 0) ? player1Handler : player2Handler;
         ClientHandler opponentHandler = (currentTurn == 0) ? player2Handler : player1Handler;
-
         currentHandler.sendMessage("你的回合请出牌或结束回合（指令：play 序号 / end）");
         opponentHandler.sendMessage("等待对手行动...");
     }
@@ -295,8 +298,8 @@ public class GameRoom {
         return roomId;
     }
 
-    public boolean containsHandler(ClientHandler h) {
-        return h == player1Handler || h == player2Handler;
+    public boolean containsHandler(ClientHandler handler) {
+        return handler == player1Handler || handler == player2Handler;
     }
 
     //玩家断线，通知另一方，终止对局
@@ -304,7 +307,9 @@ public class GameRoom {
         ClientHandler other = (disconnected == player1Handler) ? player2Handler : player1Handler;
         if (other != null) {
             other.sendMessage("对方已断线，本局结束");
+            other.clearRoom();
         }
+        disconnected.clearRoom();
         waitingForAction = false;
         isGameStarted = false;
     }

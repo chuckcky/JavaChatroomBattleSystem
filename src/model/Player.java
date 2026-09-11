@@ -111,31 +111,36 @@ public class Player {
     }
 
     //出牌设计
-    public void playCard(int index, Player target) {
+    public boolean playCard(int index, Player target) {
         //校验序号是否合法
         if (index < 0 || index >= hand.size()) {
             System.out.println("手牌序号无效");
-            return;
+            return false;
         }
         //合法时拿到手牌中
         Card card = hand.get(index);
-
         //检查费用是否够用
         if (playPoint < card.getCost()) {
             System.out.println("费用不足！需要" + card.getCost() + "点，当前" + playPoint + "点");
-            return;
+            return false;
         }
-
+        //随从预检查，检查场地是否已满
+        if (card instanceof Minion && field.size() >= 5) {
+            System.out.println("场地已满，无法打出随从");
+            return false;
+        }
         //从手牌移除掉使用的卡牌并扣除相应的费用
         hand.remove(index);
         playPoint = playPoint - card.getCost();
-
-        //执行卡牌效果
         System.out.println(name+"打出" + card.getName() + "（剩余费用 " + playPoint + "）");
+        //执行卡牌效果
         card.execute(this, target);
 
         //打出的卡牌进入弃牌堆
-        discard.add(card);
+        if (!(card instanceof Minion)) {
+            discard.add(card);
+        }
+        return true;
     }
 
     //判断玩家当前费用是否足够打出指定的卡牌
@@ -176,14 +181,15 @@ public class Player {
 
     //清理死亡的随从
     public void removeDeadMinions() {
-        List<Minion> toRemove = new ArrayList<>();
+        List<Minion> removedMinions = new ArrayList<>();
         for (Minion minion : field) {
             if (minion.isDead()) {
-                toRemove.add(minion);
+                removedMinions.add(minion);
             }
         }
-        for (Minion minion : toRemove) {
+        for (Minion minion : removedMinions) {
             field.remove(minion);
+            discard.add(minion);
             System.out.println(minion.getName() + " 从场面移除");
         }
     }
@@ -197,6 +203,7 @@ public class Player {
         hand.clear();
         deck.clear();
         discard.clear();
+        field.clear();
         alive = true;
     }
 

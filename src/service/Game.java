@@ -8,14 +8,14 @@ import java.util.List;
 
 public class Game {
 
-    private Player player;
+    private Player player1;
     private Player player2;
     private boolean gameOver;
     private Player winner;
 
     //新增网络模式
     public Game(Player player1, Player player2) {
-        this.player = player1;
+        this.player1 = player1;
         this.player2 = player2;
         this.gameOver = false;
         this.winner = null;
@@ -23,21 +23,21 @@ public class Game {
 
     //判断胜负
     private void checkGameOver() {
-        if (!player.isAlive()) {
+        if (!player1.isAlive()) {
             gameOver = true;
             winner = player2;
-            System.out.println("你已死亡！");
+            System.out.println("被击败！");
         } else if (!player2.isAlive()) {
             gameOver = true;
-            winner = player;
-            System.out.println(player.getName() + "被击败！");
+            winner = player1;
+            System.out.println(player1.getName() + "被击败！");
         }
     }
 
     //网络模式
     //获取玩家1
     public Player getPlayer1() {
-        return player;
+        return player1;
     }
 
     //获取玩家2
@@ -47,7 +47,7 @@ public class Game {
 
     //获取对手
     public Player getOpponent(Player p) {
-        return (p == player) ? player2 : player;
+        return (p == player1) ? player2 : player1;
     }
 
     //检查游戏是否结束
@@ -61,7 +61,7 @@ public class Game {
     }
 
     //执行出牌
-    public boolean playCardFromNetwork(Player currentPlayer, int cardIndex, Player target, Minion targetMinion) {
+    public boolean playCard(Player currentPlayer, int cardIndex, Player target, Minion targetMinion) {
         if (gameOver) {
             return false;
         }
@@ -79,25 +79,31 @@ public class Game {
         }
 
         //如果是单体随从法术，设置目标
-        if (card instanceof SingleAttackCard && targetMinion != null) {
+        if (card instanceof SingleAttackCard) {
+            if (targetMinion == null) {
+                return false;
+            }
+            //校验目标是否还在对手场上
+            if (!target.getField().contains(targetMinion)) {
+                return false;
+            }
             ((SingleAttackCard) card).setTargetMinion(targetMinion);
         }
 
         //执行出牌
-        currentPlayer.playCard(cardIndex, target);
+        boolean success = currentPlayer.playCard(cardIndex, target);
+        if (!success) return false;
 
         //清理死亡随从
         currentPlayer.removeDeadMinions();
         getOpponent(currentPlayer).removeDeadMinions();
-
         //检查游戏是否结束
         checkGameOver();
-
         return true;
     }
 
     //执行随从攻击
-    public boolean attackFromNetwork(Player attacker, int minionIndex, String targetType, int targetIndex) {
+    public boolean attack(Player attacker, int minionIndex, String targetType, int targetIndex) {
         if (gameOver) {
             return false;
         }
@@ -118,11 +124,11 @@ public class Game {
             //攻击主战者
             attackerMinion.attackPlayer(defender);
         } else if ("minion".equals(targetType)) {
-            List<Minion> enemyField = defender.getField();
-            if (targetIndex < 0 || targetIndex >= enemyField.size()) {
+            List<Minion> fieldMinions = defender.getField();
+            if (targetIndex < 0 || targetIndex >= fieldMinions.size()) {
                 return false;
             }
-            attackerMinion.attackMinion(enemyField.get(targetIndex));
+            attackerMinion.attackMinion(fieldMinions.get(targetIndex));
         } else {
             return false;
         }
@@ -140,20 +146,20 @@ public class Game {
     }
 
     //回合结束
-    public void endTurnFromNetwork() {
-        player.removeDeadMinions();
+    public void endTurn() {
+        player1.removeDeadMinions();
         player2.removeDeadMinions();
         checkGameOver();
     }
 
     //回合开始
-    public void startTurnForPlayer(Player p) {
-        p.roundStart();
+    public void startTurnForPlayer(Player player) {
+        player.roundStart();
     }
 
     //检查是否有可攻击的随从
-    public boolean hasAttackableMinion(Player p) {
-        for (Minion m : p.getField()) {
+    public boolean haveAttackableMinion(Player player) {
+        for (Minion m : player.getField()) {
             if (m.canAttack()) {
                 return true;
             }

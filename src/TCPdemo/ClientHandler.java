@@ -43,7 +43,7 @@ public class ClientHandler implements Runnable {
             while ((str = br.readLine()) != null) {
                 System.out.println("收到指令：" + str);
 
-                if (username == null && str.startsWith("user")) {
+                if (username == null && (str.equals("user") || str.startsWith("user "))) {
                     String[] parts = str.split("\\s+");
                     if (parts.length == 2) {
                         username = parts[1];
@@ -72,7 +72,7 @@ public class ClientHandler implements Runnable {
                 }
 
                 //加入房间
-                if (str.startsWith("join")) {
+                if (str.equals("join")||str.startsWith("join ")) {
                     String[] parts = str.split("\\s+");
                     if (parts.length == 2) {
                         String roomId = parts[1];
@@ -94,7 +94,7 @@ public class ClientHandler implements Runnable {
                     }
                     continue;
                 }
-                //开始游戏（房主专用）
+                //开始游戏
                 if ("start".equals(str)) {
                     if (currentRoom == null) {
                         sendMessage("你还没有加入任何房间");
@@ -111,8 +111,8 @@ public class ClientHandler implements Runnable {
                     continue;
                 }
 
-                //出牌（格式：play 卡牌序号 [目标序号]）
-                if (str.startsWith("play")) {
+                //出牌格式：play 卡牌序号 [目标序号]
+                if (str.equals("play")||str.startsWith("play ")) {
                     if (currentRoom == null) {
                         sendMessage("你还没有加入房间");
                         continue;
@@ -121,8 +121,8 @@ public class ClientHandler implements Runnable {
                     continue;
                 }
 
-                //攻击（格式：attack 随从序号 h 或 attack 随从序号 目标序号）
-                if (str.startsWith("attack")) {
+                //攻击格式：attack 随从序号 h 或着 attack 随从序号 目标序号
+                if (str.equals("attack")||str.startsWith("attack ")) {
                     if (currentRoom == null) {
                         sendMessage("你还没有加入房间");
                         continue;
@@ -150,7 +150,7 @@ public class ClientHandler implements Runnable {
         } finally {
             //断线清理：通知房间（对手判胜/房间解散），再关闭socket
             if (roomManager != null) {
-                roomManager.onClientDisconnect(this);
+                roomManager.clientDisconnect(this);
             }
             try {
                 socket.close();
@@ -170,8 +170,12 @@ public class ClientHandler implements Runnable {
 
         try {
             int cardIndex = Integer.parseInt(parts[1])-1;
-            String targetInfo = (parts.length >= 3) ? parts[2] : null;
-            currentRoom.handlePlayCard(this, cardIndex, targetInfo);
+            String target = null;
+            if (parts.length >= 3) {
+                int targetIndex = Integer.parseInt(parts[2]) - 1;
+                target = String.valueOf(targetIndex);
+            }
+            currentRoom.handlePlayCard(this, cardIndex, target);
         } catch (NumberFormatException e) {
             sendMessage("请输入有效的数字");
         }
@@ -201,5 +205,10 @@ public class ClientHandler implements Runnable {
         } catch (NumberFormatException e) {
             sendMessage("请输入有效的数字");
         }
+    }
+
+    //清空currentroom
+    public void clearRoom() {
+        this.currentRoom = null;
     }
 }

@@ -3,13 +3,15 @@ package TCPdemo;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+
+//房價注冊表
 public class RoomManager {
     //ConcurrentHashMap   存所有房间
     private Map<String, GameRoom> rooms = new ConcurrentHashMap<>();
     private int roomCounter = 0;
 
     //创建房间
-    public String createRoom(ClientHandler host) {
+    public synchronized String createRoom(ClientHandler host) {
         roomCounter++;
         String roomId = "room-" + String.format("%03d", roomCounter);
         GameRoom room = new GameRoom(roomId, host);
@@ -24,10 +26,12 @@ public class RoomManager {
         if (room == null) {
             return false;
         }
+        synchronized (room){
         if (room.getPlayerCount() >= 2) {
             return false;
         }
         room.addPlayer(player);
+        }
         System.out.println("玩家加入房间成功：" + roomId);
         return true;
     }
@@ -44,7 +48,7 @@ public class RoomManager {
     }
 
     //客户端断线：找到它所在的房间，通知房间处理并移除
-    public void onClientDisconnect(ClientHandler handler) {
+    public void clientDisconnect(ClientHandler handler) {
         for (GameRoom room : rooms.values()) {
             if (room.containsHandler(handler)) {
                 room.handleDisconnect(handler);

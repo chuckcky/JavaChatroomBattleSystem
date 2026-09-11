@@ -106,7 +106,7 @@ public class Client {
         //判断当前回合是谁
         boolean isMyTurn = turnPlayer.equals(myNameDisplay);
 
-        //打印对手信息（对手固定在我上方）
+        //打印对手信息  对手固定在我上方
         System.out.println("───────────────────────────────────────────────────────────────");
         System.out.printf("  %-8s HP: %2d/%-2d  │  费用: %d/%-2d  │  手牌: %-2s 张  %n",
                 oppName, Integer.parseInt(oppHp), Integer.parseInt(oppMaxHp),
@@ -116,18 +116,18 @@ public class Client {
         System.out.printf("  %-8s 场面: %-40s %n", oppName, formatField(oppField));
         System.out.println("───────────────────────────────────────────────────────────────");
 
-        //打印自己的场面与信息（在下方）
+        //打印自己的场面与信息
         System.out.printf("  %-8s 场面: %-40s %n", myNameDisplay, formatField(myField));
         System.out.printf("  %-8s HP: %2d/%-2d  │  费用: %d/%-2d  │  手牌: %-2d 张  %n",
                 myNameDisplay, Integer.parseInt(myHp), Integer.parseInt(myMaxHp),
                 Integer.parseInt(myPP), Integer.parseInt(myMaxPP),
                 countCards(myHand));
 
-        //打印手牌详情（自己的手牌）
+        //打印手牌详情
         System.out.println("───────────────────────────────────────────────────────────────");
         System.out.printf("  你的手牌: %-60s %n", formatHand(myHand));
 
-        //打印当前回合提示（以自己的名字判断）
+        //打印当前回合提示
         System.out.println("───────────────────────────────────────────────────────────────");
         String turnIndicator = isMyTurn ? "你的回合" : "等待对手...";
         System.out.printf("  %-67s %n", turnIndicator);
@@ -141,19 +141,19 @@ public class Client {
     }
 
     //统计手牌数量
-    private static int countCards(String handStr) {
-        if (handStr == null || handStr.isEmpty()) {
+    private static int countCards(String hand) {
+        if (hand == null || hand.isEmpty()) {
             return 0;
         }
-        return handStr.split(",").length;
+        return hand.split(",").length;
     }
 
     //格式化场面（编号列出所有随从，名称+攻/血）
-    private static String formatField(String fieldStr) {
-        if (fieldStr == null || fieldStr.isEmpty()) {
+    private static String formatField(String field) {
+        if (field == null || field.isEmpty()) {
             return "(空)";
         }
-        String[] minions = fieldStr.split(",");
+        String[] minions = field.split(",");
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < minions.length; i++) {
             sb.append("[").append(i + 1).append("]").append(minions[i]);
@@ -165,11 +165,11 @@ public class Client {
     }
 
     //格式化手牌
-    private static String formatHand(String handStr) {
-        if (handStr == null || handStr.isEmpty()) {
+    private static String formatHand(String hand) {
+        if (hand == null || hand.isEmpty()) {
             return "(空)";
         }
-        String[] cards = handStr.split(",");
+        String[] cards = hand.split(",");
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < cards.length; i++) {
             sb.append("[").append(i+1).append("]").append(cards[i]);
