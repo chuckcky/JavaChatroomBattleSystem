@@ -12,11 +12,9 @@ public class ClientHandler implements Runnable {
     private GameRoom currentRoom;
 
 
-    public ClientHandler(Socket socket, RoomManager roomManager) throws IOException {
+    public ClientHandler(Socket socket, RoomManager roomManager){
         this.socket = socket;
         this.roomManager = roomManager;
-        this.br = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-        this.os = socket.getOutputStream();
         this.username = null;
         this.currentRoom = null;
     }
@@ -28,21 +26,27 @@ public class ClientHandler implements Runnable {
 
     //发送消息
     public void sendMessage(String msg) {
+        if (os == null) {
+            return;
+        }
         try {
             os.write((msg + "\n").getBytes());
             os.flush();
         } catch (IOException e) {
-            e.printStackTrace();
+            System.out.println("发送消息给 " + username + " 失败：" + e.getMessage());
         }
     }
 
     @Override
     public void run() {
         try {
+            this.br = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            this.os = socket.getOutputStream();
             String str;
+            //循环读取客户端发来的每一行指令
             while ((str = br.readLine()) != null) {
                 System.out.println("收到指令：" + str);
-
+                //设置用户名
                 if (username == null && (str.equals("user") || str.startsWith("user "))) {
                     String[] parts = str.split("\\s+");
                     if (parts.length == 2) {
@@ -111,7 +115,7 @@ public class ClientHandler implements Runnable {
                     continue;
                 }
 
-                //出牌格式：play 卡牌序号 [目标序号]
+                //出牌格式 play 卡牌序号 [目标序号]
                 if (str.equals("play")||str.startsWith("play ")) {
                     if (currentRoom == null) {
                         sendMessage("你还没有加入房间");
@@ -121,7 +125,7 @@ public class ClientHandler implements Runnable {
                     continue;
                 }
 
-                //攻击格式：attack 随从序号 h 或着 attack 随从序号 目标序号
+                //攻击格式 attack 随从序号 h 或着 attack 随从序号 目标序号
                 if (str.equals("attack")||str.startsWith("attack ")) {
                     if (currentRoom == null) {
                         sendMessage("你还没有加入房间");
@@ -153,9 +157,11 @@ public class ClientHandler implements Runnable {
                 roomManager.clientDisconnect(this);
             }
             try {
-                socket.close();
+                if (socket != null && !socket.isClosed()) {
+                    socket.close();
+                }
             } catch (IOException e) {
-                e.printStackTrace();
+                //忽略关闭异常
             }
         }
     }
