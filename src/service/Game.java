@@ -31,6 +31,15 @@ public class Game {
             gameOver = true;
             winner = player1;
             System.out.println(player1.getName() + "被击败！");
+            return;
+        }
+        if (player1.isDeckEmpty() && player2.isDeckEmpty()) {
+            gameOver = true;
+            if (player1.getHp() >= player2.getHp()) {
+                winner = player1;
+            } else {
+                winner = player2;
+            }
         }
     }
 
