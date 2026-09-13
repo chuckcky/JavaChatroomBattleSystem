@@ -27,13 +27,13 @@ public class RoomManager {
             return false;
         }
         synchronized (room){
-        if (room.getPlayerCount() >= 2) {
+            if (room.containsHandler(player)) {
+                return false;
+            }
+            if (room.getPlayerCount() >= 2) {
             return false;
-        }
-        if (room.containsHandler(player)) {
-            return false;
-        }
-        room.addPlayer(player);
+            }
+            room.addPlayer(player);
         }
         System.out.println("玩家加入房间成功：" + roomId);
         return true;
