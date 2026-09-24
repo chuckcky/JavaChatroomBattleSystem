@@ -2,19 +2,36 @@ package TCPdemo;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.HashSet;
+import java.util.Set;
 
 
 //房價注冊表
 public class RoomManager {
-    //ConcurrentHashMap   存所有房间
+    //ConcurrentHashMap存所有房间
     private Map<String, GameRoom> rooms = new ConcurrentHashMap<>();
     private int roomCounter = 0;
+    //在线用户名集合（防重名）
+    private Set<String> onlineUsernames = new HashSet<>();
+
+    //注册用户名，返回false表示已被占用
+    public synchronized boolean registerUsername(String username) {
+        if (onlineUsernames.contains(username)) {
+            return false;
+        }
+        onlineUsernames.add(username);
+        return true;
+    }
+    //注销用户名
+    public synchronized void unregisterUsername(String username) {
+        onlineUsernames.remove(username);
+    }
 
     //创建房间
     public synchronized String createRoom(ClientHandler host) {
         roomCounter++;
         String roomId = "room-" + String.format("%03d", roomCounter);
-        GameRoom room = new GameRoom(roomId, host);
+        GameRoom room = new GameRoom(roomId, host,this);
         rooms.put(roomId, room);
         System.out.println("房间创建成功：" + roomId);
         return roomId;

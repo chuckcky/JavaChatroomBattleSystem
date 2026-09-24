@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>卡牌对战</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: #14161d;
+            color: #d8dee9;
+            font-family: "Microsoft YaHei", "PingFang SC", -apple-system, sans-serif;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .panel {
+            max-width: 920px; margin: 0 auto;
+            background: #1e2129;
+            border-radius: 12px; padding: 24px;
+            border: 1px solid #2a2e3a;
+        }
+
+        .hidden { display: none !important; }
+
+        h1 {
+            font-size: 22px; font-weight: 700;
+            color: #d8dee9;
+            margin-bottom: 18px;
+            display: flex; align-items: center; gap: 10px;
+        }
+        h1::after {
+            content: '';
+            flex: 1; height: 1px;
+            background: #2a2e3a;
+        }
+
+        input {
+            font-family: inherit; font-size: 15px; padding: 11px 14px;
+            border-radius: 8px;
+            border: 1px solid #2e3340;
+            background: #181b22;
+            color: #d8dee9; outline: none;
+            transition: border-color 0.15s;
+        }
+        input:focus { border-color: #5b7fb5; }
+        input::placeholder { color: #5a6478; }
+
+        button {
+            font-family: inherit; font-size: 15px; font-weight: 600;
+            padding: 11px 18px; border-radius: 8px;
+            cursor: pointer; border: none;
+            background: #3d5573;
+            color: #e8ecf2;
+            transition: background 0.15s;
+            letter-spacing: 0.3px;
+        }
+        button:hover:not(:disabled) { background: #4a688a; }
+        button:disabled { background: #2a2e3a; color: #5a6478; cursor: not-allowed; }
+        button.danger { background: #9b4a48; }
+        button.danger:hover:not(:disabled) { background: #b05a58; }
+        button.success { background: #5a7a4c; }
+        button.success:hover:not(:disabled) { background: #6b8e5b; }
+
+        .row { display: flex; gap: 12px; margin-bottom: 14px; align-items: center; }
+        .row input { flex: 1; }
+
+        .msg {
+            padding: 11px 16px; border-radius: 8px; font-size: 14px;
+            margin-bottom: 14px;
+            border-left: 3px solid;
+        }
+        .msg.info { background: #1e2632; color: #8ba9c9; border-color: #5b7fb5; }
+        .msg.error { background: #2e2022; color: #d08880; border-color: #9b4a48; }
+        .msg.success { background: #1f2a1c; color: #9db88c; border-color: #5a7a4c; }
+
+        /* 玩家信息条 */
+        .game-info {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 18px;
+            background: #1a1d25;
+            border-radius: 10px; margin-bottom: 10px;
+            border: 1px solid #2a2e3a;
+            font-size: 15px;
+        }
+        .game-info .name {
+            font-weight: 700; font-size: 16px;
+            color: #d8dee9;
+            letter-spacing: 0.5px;
+        }
+        .game-info .hp { color: #c98a85; font-weight: 600; }
+        .game-info .hp::before { content: '❤ '; }
+        .game-info .pp { color: #8ba9c9; font-weight: 600; }
+        .game-info .pp::before { content: '◈ '; }
+        .game-info .hand-count { color: #8992a6; font-weight: 600; }
+        .game-info.turn-active {
+            border-color: #5a7a4c;
+        }
+
+        /* 战场 */
+        .field {
+            min-height: 100px;
+            background: #16191f;
+            border-radius: 10px;
+            padding: 12px; margin-bottom: 10px;
+            display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+            border: 1px solid #2a2e3a;
+        }
+        .field .empty { color: #4a5468; font-style: italic; font-size: 13px; }
+
+        /* 随从 */
+        .minion {
+            position: relative;
+            background: #3d4048;
+            border: 2px solid #4d515c;
+            border-radius: 8px;
+            padding: 10px 14px 8px;
+            cursor: pointer;
+            transition: border-color 0.15s, background 0.15s;
+            min-width: 100px; text-align: center;
+        }
+        .minion::before, .minion::after {
+            content: '';
+            position: absolute;
+            width: 22px; height: 22px;
+            border-radius: 50%;
+            font-size: 11px; font-weight: 700;
+            line-height: 22px; text-align: center;
+            border: 1px solid #1a1d25;
+        }
+        .minion::before {
+            content: attr(data-atk);
+            bottom: -8px; left: -8px;
+            background: #8a7343;
+            color: #fff;
+        }
+        .minion::after {
+            content: attr(data-hp);
+            bottom: -8px; right: -8px;
+            background: #8a4a47;
+            color: #fff;
+        }
+        .minion .m-name { font-weight: 700; font-size: 14px; color: #d8dee9; }
+        .minion .m-stat { display: none; }
+
+        .minion.minion-sleeping {
+            opacity: 0.55;
+            border-color: #4d515c;
+            background: #2e313a;
+            cursor: not-allowed;
+        }
+        .minion.minion-ready {
+            border-color: #5b7fb5;
+            background: #363c48;
+        }
+        .minion.minion-ready:hover {
+            border-color: #7a9bc4;
+            background: #3d4450;
+        }
+        .minion.selected {
+            border-color: #b8985a;
+            background: #4a4232;
+            opacity: 1;
+        }
+        .minion.targetable {
+            border-color: #b8615a;
+            cursor: crosshair;
+        }
+
+        /* 手牌区 */
+        .hand {
+            background: #16191f;
+            border-radius: 10px; padding: 12px;
+            margin-bottom: 10px; display: flex; gap: 10px; flex-wrap: wrap;
+            min-height: 120px; align-items: center;
+            border: 1px solid #2a2e3a;
+        }
+        .hand .empty { color: #4a5468; font-style: italic; font-size: 13px; }
+
+        /* 卡牌 */
+        .card {
+            position: relative;
+            background: #4a4740;
+            border: 2px solid #5c5850;
+            border-radius: 8px;
+            padding: 18px 10px 12px;
+            cursor: pointer;
+            min-width: 108px; text-align: center;
+            font-size: 13px;
+            transition: border-color 0.15s, background 0.15s;
+            color: #e8e2d2;
+        }
+        .card::before {
+            content: attr(data-cost);
+            position: absolute;
+            top: -8px; left: -8px;
+            width: 24px; height: 24px;
+            border-radius: 50%;
+            background: #4a6a99;
+            color: #fff;
+            font-size: 13px; font-weight: 700;
+            line-height: 24px; text-align: center;
+            border: 1px solid #1a1d25;
+        }
+        .card:hover:not(.unaffordable) {
+            border-color: #b8985a;
+            background: #524d42;
+        }
+        .card.unaffordable {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        .card.waiting-target {
+            border-color: #b8985a;
+            background: #5a5240;
+        }
+        .card .c-name {
+            font-weight: 700; font-size: 14px;
+            color: #ede5d0;
+            letter-spacing: 0.3px;
+        }
+        .card .c-cost { display: none; }
+
+        /* 操作按钮 */
+        .actions { display: flex; gap: 12px; margin-top: 12px; }
+        .actions button { flex: 1; padding: 13px; font-size: 15px; }
+
+        /* 回合提示 */
+        .turn-indicator {
+            text-align: center; padding: 13px;
+            border-radius: 10px;
+            font-weight: 700; font-size: 15px; letter-spacing: 0.5px;
+            margin-bottom: 14px;
+            border: 1px solid;
+        }
+        .turn-mine {
+            background: #1f2a1c;
+            color: #9db88c;
+            border-color: #5a7a4c;
+        }
+        .turn-waiting {
+            background: #1a1d25;
+            color: #8ba9c9;
+            border-color: #2e3340;
+        }
+        .turn-target {
+            background: #2b2620;
+            color: #d4b86b;
+            border-color: #b8985a;
+        }
+
+        /* 分区标题 */
+        .section-title {
+            font-size: 12px; color: #8992a6;
+            margin: 4px 0 8px 2px;
+            text-transform: uppercase; letter-spacing: 1.5px;
+            font-weight: 600;
+        }
+
+        /* 日志 */
+        #log {
+            margin-top: 16px; max-height: 150px; overflow-y: auto;
+            background: #101216;
+            border-radius: 8px; padding: 10px 14px;
+            font-family: "Consolas", "Monaco", monospace;
+            font-size: 12px; color: #6e7a90;
+            border: 1px solid #2a2e3a;
+        }
+        #log::-webkit-scrollbar { width: 6px; }
+        #log::-webkit-scrollbar-thumb { background: #2e3340; border-radius: 3px; }
+        #log .line { margin: 3px 0; line-height: 1.5; }
+        #log .line.sys { color: #5a6478; }
+        #log .line.game { color: #b8a878; }
+        #log .line.err { color: #c88080; }
+
+        @media (max-width: 640px) {
+            .panel { padding: 18px 14px; }
+            h1 { font-size: 19px; }
+            .game-info { flex-wrap: wrap; gap: 8px; font-size: 14px; }
+            .card { min-width: 88px; padding: 16px 8px 10px; }
+            .minion { min-width: 80px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- 登录 -->
+<div id="login-panel" class="panel">
+    <h1>🃏 卡牌对战</h1>
+    <p style="color:#6e7a90; margin-bottom:18px; font-size:14px;">输入用户名，开始游戏</p>
+    <div class="row">
+        <input id="username-input" placeholder="用户名（例如：小明）" maxlength="12" autofocus>
+        <button id="login-btn">进入</button>
+    </div>
+    <div id="login-msg" class="msg info hidden"></div>
+</div>
+
+<!-- 大厅 -->
+<div id="lobby-panel" class="panel hidden">
+    <h1>🏰 游戏大厅</h1>
+    <div class="msg info">你好，<span id="lobby-username"></span></div>
+    <div class="row">
+        <button id="create-btn" class="success" style="width:100%;">创建房间</button>
+    </div>
+    <div class="row">
+        <input id="room-input" placeholder="房间号（例如：room-001）">
+        <button id="join-btn">加入房间</button>
+    </div>
+    <div id="lobby-msg" class="msg info hidden"></div>
+    <button id="start-btn" class="success hidden" style="width:100%; margin-top:10px;">开始游戏</button>
+</div>
+
+<!-- 对战 -->
+<div id="game-panel" class="panel hidden">
+    <h1>⚔️ 对战中</h1>
+    <div id="turn-indicator" class="turn-indicator turn-waiting">等待...</div>
+
+    <div class="section-title">对手</div>
+    <div id="opp-info" class="game-info">
+        <span class="name">--</span>
+        <span>HP: <span class="hp">--</span></span>
+        <span>费用: <span class="pp">--</span></span>
+        <span>手牌: <span class="hand-count">--</span></span>
+        <span>牌堆: <span class="deck-count">--</span></span>
+    </div>
+    <div id="opp-field" class="field"><span class="empty">(空)</span></div>
+
+    <div class="section-title">我方战场</div>
+    <div id="my-field" class="field"><span class="empty">(空)</span></div>
+    <div id="my-info" class="game-info">
+        <span class="name">--</span>
+        <span>HP: <span class="hp">--</span></span>
+        <span>费用: <span class="pp">--</span></span>
+        <span>牌堆: <span class="deck-count">--</span></span>
+    </div>
+
+    <div class="section-title">我的手牌</div>
+    <div id="my-hand" class="hand"><span class="empty">(空)</span></div>
+
+    <div class="actions">
+        <button id="attack-player-btn" disabled>攻击对手</button>
+        <button id="end-turn-btn" class="danger" disabled>结束回合</button>
+    </div>
+
+    <div id="log"></div>
+</div>
+
+<script>
+    let ws = null;
+    let myName = null;
+    let selectedMinionIdx = -1;
+    let isMyTurn = false;
+    let isHost = false;
+    let pendingCardIdx = -1;
+    let currentTurnPlayer = '';
+    const TARGET_CARDS = new Set(['风暴']);
+
+    const $ = (id) => document.getElementById(id);
+    const show = (id) => $(id).classList.remove('hidden');
+    const hide = (id) => $(id).classList.add('hidden');
+
+    function setMsg(id, text, type) {
+        const el = $(id);
+        el.textContent = text;
+        el.className = 'msg ' + (type || 'info');
+        el.classList.remove('hidden');
+    }
+
+    function log(text, cls) {
+        const el = $('log');
+        const div = document.createElement('div');
+        div.className = 'line ' + (cls || '');
+        div.textContent = text;
+        el.appendChild(div);
+        el.scrollTop = el.scrollHeight;
+    }
+
+    function connect() {
+        const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+        ws = new WebSocket(proto + '://' + location.host + '/ws');
+        ws.onopen = () => log('已连接服务器', 'sys');
+        ws.onmessage = (ev) => handleServerMessage(ev.data);
+        ws.onclose = () => log('连接已断开', 'err');
+        ws.onerror = () => log('连接错误', 'err');
+    }
+
+    function send(cmd) {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+            log('未连接，无法发送', 'err');
+            return;
+        }
+        ws.send(cmd);
+        log('> ' + cmd, 'sys');
+    }
+
+    function handleServerMessage(msg) {
+        log('[服务器] ' + msg);
+
+        if (msg.startsWith('用户名设置成功：')) {
+            myName = msg.substring('用户名设置成功：'.length).trim();
+            $('lobby-username').textContent = myName;
+            hide('login-panel');
+            show('lobby-panel');
+            return;
+        }
+        if (msg.includes('已被占用')) {
+            setMsg('login-msg', msg, 'error');
+            return;
+        }
+        if (msg.startsWith('房间创建成功！房间号：')) {
+            const roomId = msg.substring('房间创建成功！房间号：'.length).trim();
+            setMsg('lobby-msg', '房间已创建：' + roomId + '，等待对手加入...', 'success');
+            if (isHost) show('start-btn');
+            return;
+        }
+        if (msg.includes('进入了房间')) {
+            setMsg('lobby-msg', msg, 'success');
+            if (isHost) show('start-btn');
+            return;
+        }
+        if (msg.includes('不能加入自己的房间')) {
+            setMsg('lobby-msg', msg, 'error');
+            return;
+        }
+        if (msg.includes('房间不存在')) {
+            setMsg('lobby-msg', msg, 'error');
+            return;
+        }
+        if (msg.includes('加入房间') && msg.includes('成功')) {
+            setMsg('lobby-msg', msg, 'success');
+            return;
+        }
+        if (msg.includes('房间已满')) {
+            if (isHost) {
+                setMsg('lobby-msg', '房间已满，可以开始游戏', 'success');
+                show('start-btn');
+            } else {
+                setMsg('lobby-msg', '房间已满，等待房主开始游戏...', 'info');
+            }
+            return;
+        }
+        if (msg.includes('只有房主可以开始游戏')) {
+            setMsg('lobby-msg', msg, 'error');
+            return;
+        }
+        if (msg.includes('游戏已开始')) {
+            hide('lobby-panel');
+            show('game-panel');
+            return;
+        }
+        if (msg.startsWith('GAME_STATE|')) {
+            renderGameState(msg.substring('GAME_STATE|'.length));
+            return;
+        }
+        if (msg.startsWith('GAME_OVER|')) {
+            const result = msg.substring('GAME_OVER|'.length);
+            log('🏆 ' + result, 'game');
+            alert('游戏结束：' + result + '\n点击确定返回大厅');
+
+            isHost = false;
+            pendingCardIdx = -1;
+            selectedMinionIdx = -1;
+            isMyTurn = false;
+            currentTurnPlayer = '';
+
+            $('my-hand').innerHTML = '<span class="empty">(空)</span>';
+            $('my-field').innerHTML = '<span class="empty">(空)</span>';
+            $('opp-field').innerHTML = '<span class="empty">(空)</span>';
+            $('log').innerHTML = '';
+
+            hide('game-panel');
+            show('lobby-panel');
+            hide('start-btn');
+            setMsg('lobby-msg', '游戏已结束，请重新创建或加入房间', 'info');
+            return;
+        }
+        log(msg, 'game');
+    }
+
+    function renderGameState(data) {
+        const p = data.split('|');
+        const p1 = { name: p[1],  hp: p[3],  maxHp: p[5],  pp: p[7],  maxPp: p[9],  hand: p[11], field: p[13] };
+        const p2 = { name: p[15], hp: p[17], maxHp: p[19], pp: p[21], maxPp: p[23], hand: p[25], field: p[27] };
+        const turnPlayer = p[29];
+        const deck1 = (p[31] !== undefined) ? p[31] : '--';
+        const deck2 = (p[33] !== undefined) ? p[33] : '--';
+        const myRole = (p[35] === 'P1') ? 'P1' : 'P2';
+        const me  = (myRole === 'P1') ? p1 : p2;
+        const opp = (myRole === 'P1') ? p2 : p1;
+        isMyTurn = (turnPlayer === myName);
+        currentTurnPlayer = turnPlayer;
+
+        if (!isMyTurn) {
+            pendingCardIdx = -1;
+            selectedMinionIdx = -1;
+        }
+
+        $('opp-info').querySelector('.name').textContent = opp.name;
+        $('opp-info').querySelector('.hp').textContent = opp.hp + '/' + opp.maxHp;
+        $('opp-info').querySelector('.pp').textContent = opp.pp + '/' + opp.maxPp;
+        $('opp-info').querySelector('.hand-count').textContent = opp.hand + ' 张';
+        $('opp-info').querySelector('.deck-count').textContent = (me === p1) ? deck2 : deck1;
+        renderField('opp-field', opp.field, false);
+
+        $('my-info').querySelector('.name').textContent = me.name;
+        $('my-info').querySelector('.hp').textContent = me.hp + '/' + me.maxHp;
+        $('my-info').querySelector('.pp').textContent = me.pp + '/' + me.maxPp;
+        $('my-info').querySelector('.deck-count').textContent = (me === p1) ? deck1 : deck2;
+        renderField('my-field', me.field, true);
+        renderHand(me.hand, parseInt(me.pp));
+
+        updateTurnIndicator();
+        $('end-turn-btn').disabled = !isMyTurn;
+        updateAttackBtn();
+        $('my-info').classList.toggle('turn-active', isMyTurn);
+        $('opp-info').classList.toggle('turn-active', !isMyTurn);
+    }
+
+    function updateTurnIndicator() {
+        const turnEl = $('turn-indicator');
+        if (pendingCardIdx >= 0) {
+            turnEl.textContent = '请点击对手的一个随从作为目标';
+            turnEl.className = 'turn-indicator turn-target';
+        } else if (isMyTurn) {
+            turnEl.textContent = '▶ 你的回合';
+            turnEl.className = 'turn-indicator turn-mine';
+        } else {
+            turnEl.textContent = '等待 ' + currentTurnPlayer + ' 行动...';
+            turnEl.className = 'turn-indicator turn-waiting';
+        }
+    }
+
+    function updateTargetMode() {
+        //手牌高亮
+        $('my-hand').querySelectorAll('.card').forEach((el, i) => {
+            el.classList.toggle('waiting-target', pendingCardIdx === i);
+        });
+        //对手随从高亮
+        $('opp-field').querySelectorAll('.minion').forEach(el => {
+            el.classList.toggle('targetable', pendingCardIdx >= 0);
+        });
+        updateTurnIndicator();
+        updateAttackBtn();
+    }
+
+    function renderField(elId, fieldStr, isMine) {
+        const el = $(elId);
+        el.innerHTML = '';
+        if (!fieldStr || fieldStr.trim() === '') {
+            el.innerHTML = '<span class="empty">(空)</span>';
+            return;
+        }
+        fieldStr.split(';').forEach((m, idx) => {
+            const match = m.match(/^(.+?)\((\d+)\/(\d+),(\d)\)$/);
+            const name   = match ? match[1] : m;
+            const atk    = match ? match[2] : '?';
+            const hp     = match ? match[3] : '?';
+            const canAtk = match ? match[4] === '1' : false;
+
+            const div = document.createElement('div');
+            div.className = 'minion';
+            div.setAttribute('data-atk', atk);
+            div.setAttribute('data-hp', hp);
+
+            if (isMine) {
+                div.classList.add(canAtk ? 'minion-ready' : 'minion-sleeping');
+                if (selectedMinionIdx === idx) div.classList.add('selected');
+            } else {
+                if (pendingCardIdx >= 0) div.classList.add('targetable');
+            }
+
+            div.innerHTML = `<div class="m-name">${name}</div>
+                             <div class="m-stat">${atk}/${hp}</div>`;
+
+            if (isMine) {
+                div.onclick = () => {
+                    if (!isMyTurn) return;
+                    if (pendingCardIdx >= 0) return;
+                    if (!canAtk) { log('这个随从本回合不能攻击', 'err'); return; }
+                    document.querySelectorAll('#my-field .minion').forEach(x => x.classList.remove('selected'));
+                    if (selectedMinionIdx === idx) {
+                        selectedMinionIdx = -1;
+                    } else {
+                        selectedMinionIdx = idx;
+                        div.classList.add('selected');
+                    }
+                    updateAttackBtn();
+                };
+            } else {
+                div.onclick = () => {
+                    if (!isMyTurn) return;
+                    if (pendingCardIdx >= 0) {
+                        send('play ' + (pendingCardIdx + 1) + ' ' + (idx + 1));
+                        pendingCardIdx = -1;
+                        return;
+                    }
+                    if (selectedMinionIdx < 0) return;
+                    send('attack ' + (selectedMinionIdx + 1) + ' ' + (idx + 1));
+                    selectedMinionIdx = -1;
+                };
+            }
+            el.appendChild(div);
+        });
+    }
+
+    function renderHand(handStr, myPp) {
+        const el = $('my-hand');
+        el.innerHTML = '';
+        if (!handStr || handStr.trim() === '') {
+            el.innerHTML = '<span class="empty">(空)</span>';
+            return;
+        }
+        handStr.split(',').forEach((c, idx) => {
+            const match = c.match(/^(.+?)\(费(\d+)\)$/);
+            const name = match ? match[1] : c;
+            const cost = match ? parseInt(match[2]) : 0;
+
+            const div = document.createElement('div');
+            div.className = 'card';
+            div.setAttribute('data-cost', cost);
+            if (cost > myPp) div.classList.add('unaffordable');
+            if (pendingCardIdx === idx) div.classList.add('waiting-target');
+            div.innerHTML = `<div class="c-name">${name}</div>
+                             <div class="c-cost">${cost}</div>`;
+
+            div.onclick = () => {
+                if (!isMyTurn) { log('还没轮到你', 'err'); return; }
+                if (cost > myPp) { log('费用不足', 'err'); return; }
+
+                if (TARGET_CARDS.has(name)) {
+                    pendingCardIdx = (pendingCardIdx === idx) ? -1 : idx;
+                    selectedMinionIdx = -1;
+                    if (pendingCardIdx >= 0) log('请点击对手的一个随从作为目标', 'sys');
+                    updateTargetMode();
+                    return;
+                }
+
+                send('play ' + (idx + 1));
+            };
+            el.appendChild(div);
+        });
+    }
+
+    function updateAttackBtn() {
+        $('attack-player-btn').disabled =
+            !(isMyTurn && selectedMinionIdx >= 0 && pendingCardIdx < 0);
+    }
+
+    // ─── 事件绑定 ───
+    $('login-btn').onclick = () => {
+        const name = $('username-input').value.trim();
+        if (!name) { setMsg('login-msg', '请输入用户名', 'error'); return; }
+        send('user ' + name);
+    };
+    $('username-input').onkeydown = (e) => { if (e.key === 'Enter') $('login-btn').click(); };
+
+    $('create-btn').onclick = () => { isHost = true; send('create'); };
+
+    $('join-btn').onclick = () => {
+        const roomId = $('room-input').value.trim();
+        if (!roomId) { setMsg('lobby-msg', '请输入房间号', 'error'); return; }
+        send('join ' + roomId);
+    };
+    $('room-input').onkeydown = (e) => { if (e.key === 'Enter') $('join-btn').click(); };
+
+    $('start-btn').onclick = () => send('start');
+
+    $('end-turn-btn').onclick = () => {
+        if (!isMyTurn) return;
+        selectedMinionIdx = -1;
+        pendingCardIdx = -1;
+        send('end');
+    };
+
+    $('attack-player-btn').onclick = () => {
+        if (!isMyTurn) return;
+        if (pendingCardIdx >= 0) { log('请先点对手随从作为法术目标', 'err'); return; }
+        if (selectedMinionIdx < 0) { log('请先选择一个随从', 'err'); return; }
+        send('attack ' + (selectedMinionIdx + 1) + ' h');
+        selectedMinionIdx = -1;
+    };
+
+    connect();
+</script>
+</body>
+</html>

@@ -38,8 +38,8 @@ public class GameStateFormatter {
         List<Minion> field1 = p1.getField();
         for (int i = 0; i < field1.size(); i++) {
             Minion m = field1.get(i);
-            sb.append(m.getName()).append("(").append(m.getAttack()).append("/").append(m.getHp()).append(")");
-            if (i < field1.size() - 1) sb.append(",");
+            sb.append(m.getName()).append("(").append(m.getAttack()).append("/").append(m.getHp()).append(",").append(m.canAttack() ? 1 : 0).append(")");
+            if (i < field1.size() - 1) sb.append(";");
         }
 
         //分隔符
@@ -70,12 +70,16 @@ public class GameStateFormatter {
         List<Minion> field2 = p2.getField();
         for (int i = 0; i < field2.size(); i++) {
             Minion m = field2.get(i);
-            sb.append(m.getName()).append("(").append(m.getAttack()).append("/").append(m.getHp()).append(")");
-            if (i < field2.size() - 1) sb.append(",");
+            sb.append(m.getName()).append("(").append(m.getAttack()).append("/").append(m.getHp()).append(",").append(m.canAttack() ? 1 : 0).append(")");
+            if (i < field2.size() - 1) sb.append(";");
         }
 
         //当前回合玩家
         sb.append("|TURN|").append(currentTurn == 0 ? p1.getName() : p2.getName());
+        //牌堆剩余
+        sb.append("|DECK1|").append(p1.getDeck().size());
+        sb.append("|DECK2|").append(p2.getDeck().size());
+        sb.append("|YOU|").append(player == p1 ? "P1" : "P2");
 
         return sb.toString();
     }

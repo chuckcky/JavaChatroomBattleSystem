@@ -7,6 +7,7 @@ import service.Game;
 import java.util.List;
 import java.util.Random;
 
+
 //管理单局的游戏状态
 //单局状态机
 public class GameRoom {
@@ -26,14 +27,16 @@ public class GameRoom {
     //是否正在等待玩家行动
     private boolean waitingForAction;
     private Random rand;
+    private RoomManager roomManager;
 
-    public GameRoom(String roomId, ClientHandler host) {
+    public GameRoom(String roomId, ClientHandler host,RoomManager roomManager) {
         this.roomId = roomId;
         this.player1Handler = host;
         this.player2Handler = null;
         this.isGameStarted = false;
         this.waitingForAction = false;
         this.rand = new Random();
+        this.roomManager = roomManager;
     }
 
     public int getPlayerCount() {
@@ -80,6 +83,10 @@ public class GameRoom {
 
         System.out.println("房间 " + roomId + " 游戏开始！先手：" +
                 (player1First ? player1Handler.getUsername() : player2Handler.getUsername()));
+
+        //通知双方游戏已开始
+        player1Handler.sendMessage("游戏已开始！");
+        player2Handler.sendMessage("游戏已开始！");
 
         //广播游戏开始+初始状态
         broadcastGameState();
@@ -277,6 +284,11 @@ public class GameRoom {
         player1Handler.sendMessage(msg);
         player2Handler.sendMessage(msg);
         waitingForAction = false;
+        isGameStarted = false;
+        //RoomManager里移除本房间
+        if (roomManager != null) {
+            roomManager.removeRoom(roomId);
+        }
     }
 
     //通知当前玩家行动
@@ -300,6 +312,16 @@ public class GameRoom {
 
     public boolean containsHandler(ClientHandler handler) {
         return handler == player1Handler || handler == player2Handler;
+    }
+
+    //判断是不是房主
+    public boolean isHost(ClientHandler handler) {
+        return handler == player1Handler;
+    }
+
+    //获取房主的handler
+    public ClientHandler getHostHandler() {
+        return player1Handler;
     }
 
     //玩家断线，通知另一方，终止对局

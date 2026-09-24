@@ -7,6 +7,8 @@ import java.net.Socket;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
+import TCPdemo.net.TcpConnection;
+import TCPdemo.web.WebSocketServer;
 
 public class Server {
     //服务器最大同时在线连接数
@@ -21,7 +23,19 @@ public class Server {
         //创建唯一的房间管理器
         RoomManager roomManager = new RoomManager();
 
-        //线程池 核心线程数=最大线程数=50
+        //启动WebSocket服务（独立线程，端口8080）
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    new WebSocketServer(8080, roomManager).start();
+                } catch (IOException e) {
+                    System.out.println("WebSocket 服务启动失败：" + e.getMessage());
+                }
+            }
+        }).start();
+
+        //核心线程数=最大线程数=50
         //底层用的是无界队列LinkedBlockingQueue
         //如果不做额外限制的话第51个客户端会进入队列无限等待
         //所以我们使用AtomicInteger手动限制在线连接数
@@ -52,12 +66,17 @@ public class Server {
             }
             //在线数+1
             onlineCount.incrementAndGet();
-            pool.execute(() -> {
-                try {
-                    new ClientHandler(socket, roomManager).run();
-                } finally {
-                    //无论任务正常结束还是异常结束，在线数都要 -1
-                    onlineCount.decrementAndGet();
+            pool.execute(new Runnable(){
+                @Override
+                public void run() {
+                    try {
+                        new ClientHandler(new TcpConnection(socket), roomManager).run();
+                    } catch (IOException e) {
+                        System.out.println("连接初始化失败：" + e.getMessage());
+                    } finally {
+                        //无论任务正常结束还是异常结束，在线数都要 -1
+                        onlineCount.decrementAndGet();
+                    }
                 }
             });
         }

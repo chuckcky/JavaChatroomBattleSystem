@@ -1,19 +1,18 @@
 package TCPdemo;
 
 import java.io.*;
-import java.net.Socket;
+import TCPdemo.net.Connection;
+
 
 public class ClientHandler implements Runnable {
-    private Socket socket;
-    private BufferedReader br;
-    private OutputStream os;
+    private Connection connection;
     private RoomManager roomManager;
     private String username;
     private GameRoom currentRoom;
 
 
-    public ClientHandler(Socket socket, RoomManager roomManager){
-        this.socket = socket;
+    public ClientHandler(Connection connection, RoomManager roomManager) {
+        this.connection = connection;
         this.roomManager = roomManager;
         this.username = null;
         this.currentRoom = null;
@@ -26,31 +25,32 @@ public class ClientHandler implements Runnable {
 
     //发送消息
     public void sendMessage(String msg) {
-        if (os == null) {
+        //判空connection
+        if (connection == null) {
             return;
         }
-        try {
-            os.write((msg + "\n").getBytes());
-            os.flush();
-        } catch (IOException e) {
-            System.out.println("发送消息给 " + username + " 失败：" + e.getMessage());
-        }
+        connection.writeLine(msg);
     }
 
     @Override
     public void run() {
         try {
-            this.br = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            this.os = socket.getOutputStream();
             String str;
             //循环读取客户端发来的每一行指令
-            while ((str = br.readLine()) != null) {
+            while ((str = connection.readLine()) != null) {
                 System.out.println("收到指令：" + str);
                 //设置用户名
                 if (username == null && (str.equals("user") || str.startsWith("user "))) {
                     String[] parts = str.split("\\s+");
                     if (parts.length == 2) {
-                        username = parts[1];
+                        String name = parts[1];
+                        //检查重名
+                        boolean ok = roomManager.registerUsername(name);
+                        if (!ok) {
+                            sendMessage("用户名 " + name + " 已被占用，请换一个");
+                            continue;
+                        }
+                        username = name;
                         sendMessage("用户名设置成功：" + username);
                         System.out.println("玩家 " + username + " 上线了");
                         continue;
@@ -76,22 +76,36 @@ public class ClientHandler implements Runnable {
                 }
 
                 //加入房间
-                if (str.equals("join")||str.startsWith("join ")) {
+                if (str.equals("join") || str.startsWith("join ")) {
                     String[] parts = str.split("\\s+");
                     if (parts.length == 2) {
                         String roomId = parts[1];
+                        //房间是否存在
+                        GameRoom targetRoom = roomManager.findRoom(roomId);
+                        if (targetRoom == null) {
+                            sendMessage("房间不存在：" + roomId);
+                            continue;
+                        }
+                        //是不是自己创建的房间
+                        if (targetRoom.isHost(this)) {
+                            sendMessage("你是该房间的房主");
+                            continue;
+                        }
                         boolean success = roomManager.joinRoom(roomId, this);
                         if (success) {
                             currentRoom = roomManager.findRoom(roomId);
                             sendMessage("加入房间 " + roomId + " 成功！");
                             System.out.println("玩家 " + username + " 加入了房间 " + roomId);
                             //通知房主有人加入
+                            ClientHandler host = currentRoom.getHostHandler();
+                            if (host != null) {
+                                host.sendMessage("玩家 " + username + " 进入了房间，可以开始游戏了！");
+                            }
                             if (currentRoom.getPlayerCount() == 2) {
-                                //两个玩家都到齐了
-                                sendMessage("房间已满，可以开始游戏了！房主输入 start 开始游戏");
+                                sendMessage("房间已满，等待房主开始游戏...");
                             }
                         } else {
-                            sendMessage("加入房间失败，房间不存在或已满。");
+                            sendMessage("加入房间失败，房间可能已满。");
                         }
                     } else {
                         sendMessage("格式错误，请使用：join 房间号（例如：join room-001）");
@@ -108,15 +122,18 @@ public class ClientHandler implements Runnable {
                         sendMessage("房间人数不足2人，无法开始游戏");
                         continue;
                     }
+                    if (!currentRoom.isHost(this)) {
+                        sendMessage("只有房主可以开始游戏");
+                        continue;
+                    }
                     //检查是否已经是开始状态
                     currentRoom.startGame();
-                    sendMessage("游戏已开始！请等待对手操作...");
                     System.out.println("玩家 " + username + " 开始了游戏");
                     continue;
                 }
 
                 //出牌格式 play 卡牌序号 [目标序号]
-                if (str.equals("play")||str.startsWith("play ")) {
+                if (str.equals("play") || str.startsWith("play ")) {
                     if (currentRoom == null) {
                         sendMessage("你还没有加入房间");
                         continue;
@@ -126,7 +143,7 @@ public class ClientHandler implements Runnable {
                 }
 
                 //攻击格式 attack 随从序号 h 或着 attack 随从序号 目标序号
-                if (str.equals("attack")||str.startsWith("attack ")) {
+                if (str.equals("attack") || str.startsWith("attack ")) {
                     if (currentRoom == null) {
                         sendMessage("你还没有加入房间");
                         continue;
@@ -155,13 +172,13 @@ public class ClientHandler implements Runnable {
             //断线清理：通知房间（对手判胜/房间解散），再关闭socket
             if (roomManager != null) {
                 roomManager.clientDisconnect(this);
-            }
-            try {
-                if (socket != null && !socket.isClosed()) {
-                    socket.close();
+                //注销用户名
+                if (username != null) {
+                    roomManager.unregisterUsername(username);
                 }
-            } catch (IOException e) {
-                //忽略关闭异常
+            }
+            if (connection != null) {
+                connection.close();
             }
         }
     }
