@@ -10,7 +10,10 @@ public class AOEAttackCard extends Card{
         this.damage = damage;
     }
 
-
+    @Override
+    public String getTypeCode() {
+        return "A";
+    }
 
     @Override
     public void execute(Player caster, Player target) {

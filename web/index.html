@@ -354,7 +354,6 @@
     let isHost = false;
     let pendingCardIdx = -1;
     let currentTurnPlayer = '';
-    const TARGET_CARDS = new Set(['风暴']);
 
     const $ = (id) => document.getElementById(id);
     const show = (id) => $(id).classList.remove('hidden');
@@ -453,26 +452,17 @@
             renderGameState(msg.substring('GAME_STATE|'.length));
             return;
         }
+        if (msg.includes('对方已断线')) {
+            log(msg, 'err');
+            alert('对方已断线，本局结束');
+            returnToLobby('对方已断线，本局已结束，请重新创建或加入房间');
+            return;
+        }
         if (msg.startsWith('GAME_OVER|')) {
             const result = msg.substring('GAME_OVER|'.length);
             log('🏆 ' + result, 'game');
             alert('游戏结束：' + result + '\n点击确定返回大厅');
-
-            isHost = false;
-            pendingCardIdx = -1;
-            selectedMinionIdx = -1;
-            isMyTurn = false;
-            currentTurnPlayer = '';
-
-            $('my-hand').innerHTML = '<span class="empty">(空)</span>';
-            $('my-field').innerHTML = '<span class="empty">(空)</span>';
-            $('opp-field').innerHTML = '<span class="empty">(空)</span>';
-            $('log').innerHTML = '';
-
-            hide('game-panel');
-            show('lobby-panel');
-            hide('start-btn');
-            setMsg('lobby-msg', '游戏已结束，请重新创建或加入房间', 'info');
+            returnToLobby('游戏已结束，请重新创建或加入房间');
             return;
         }
         log(msg, 'game');
@@ -611,10 +601,11 @@
             el.innerHTML = '<span class="empty">(空)</span>';
             return;
         }
-        handStr.split(',').forEach((c, idx) => {
-            const match = c.match(/^(.+?)\(费(\d+)\)$/);
+        handStr.split(';').forEach((c, idx) => {
+            const match = c.match(/^(.+?)\(费(\d+),([SADHM])\)$/);
             const name = match ? match[1] : c;
             const cost = match ? parseInt(match[2]) : 0;
+            const type = match ? match[3] : '?';
 
             const div = document.createElement('div');
             div.className = 'card';
@@ -628,7 +619,7 @@
                 if (!isMyTurn) { log('还没轮到你', 'err'); return; }
                 if (cost > myPp) { log('费用不足', 'err'); return; }
 
-                if (TARGET_CARDS.has(name)) {
+                if (type === 'S') {
                     pendingCardIdx = (pendingCardIdx === idx) ? -1 : idx;
                     selectedMinionIdx = -1;
                     if (pendingCardIdx >= 0) log('请点击对手的一个随从作为目标', 'sys');
@@ -645,6 +636,25 @@
     function updateAttackBtn() {
         $('attack-player-btn').disabled =
             !(isMyTurn && selectedMinionIdx >= 0 && pendingCardIdx < 0);
+    }
+
+    // 返回大厅并重置对战状态（游戏结束 / 对方断线共用）
+    function returnToLobby(message) {
+        isHost = false;
+        pendingCardIdx = -1;
+        selectedMinionIdx = -1;
+        isMyTurn = false;
+        currentTurnPlayer = '';
+
+        $('my-hand').innerHTML = '<span class="empty">(空)</span>';
+        $('my-field').innerHTML = '<span class="empty">(空)</span>';
+        $('opp-field').innerHTML = '<span class="empty">(空)</span>';
+        $('log').innerHTML = '';
+
+        hide('game-panel');
+        show('lobby-panel');
+        hide('start-btn');
+        setMsg('lobby-msg', message, 'info');
     }
 
     // ─── 事件绑定 ───

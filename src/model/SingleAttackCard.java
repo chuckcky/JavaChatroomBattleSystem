@@ -9,6 +9,11 @@ public class SingleAttackCard extends Card{
     }
 
     @Override
+    public String getTypeCode() {
+        return "S";
+    }
+
+    @Override
     public void execute(Player caster, Player target) {
         if (targetMinion == null) {
             System.out.println(getName() + " 没有指定目标随从");

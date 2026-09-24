@@ -12,6 +12,8 @@ public abstract class Card {
 
     public abstract void execute(Player caster, Player target);
 
+    //卡牌类型编码
+    public abstract String getTypeCode();
 
     /**
      * 获取

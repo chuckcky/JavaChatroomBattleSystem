@@ -1,13 +1,17 @@
 package model;
 
 public class HealCard extends Card {
-    private int healAmount;
+    private final int healAmount;
 
     public HealCard(String name, int cost, int healAmount) {
         super(name, cost);
         this.healAmount = healAmount;
     }
 
+    @Override
+    public String getTypeCode() {
+        return "H";
+    }
 
     @Override
     public void execute(Player caster, Player target) {

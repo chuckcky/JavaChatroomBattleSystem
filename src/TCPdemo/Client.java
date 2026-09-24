@@ -59,12 +59,16 @@ public class Client {
     //解析GameState并格式化打印
     private static void printGameState(String data) {
         //数据格式示例：
-        //P1|001|HP|20|MAXHP|20|PP|0|MAXPP|0|HAND|横扫之刃,剑斗士,魔弹,咆哮|FIELD||P2|002|HP|20|MAXHP|20|PP|0|MAXPP|0|HAND|咆哮,横扫之刃,横扫之刃,风暴|FIELD||TURN|001
+        //类型码：S=单体法术(需选目标) A=AOE法术 D=直伤法术 H=治疗法术 M=随从
+        //P1|001|HP|20|MAXHP|20|PP|0|MAXPP|0|HAND|横扫之刃(费6,A);剑斗士(费2,M);魔弹(费1,D)|FIELD||P2|002|HP|20|MAXHP|20|PP|0|MAXPP|0|HAND|咆哮(费3,A);风暴(费1,S)|FIELD||TURN|001|DECK1|26|DECK2|26|YOU|P1
 
         String[] parts = data.split("\\|");
 
         //解析玩家1信息
-        //parts[0]=P1, parts[1]=玩家1名字, parts[2]=HP, parts[3]=血量, parts[4]=MAXHP, parts[5]=最大血量, parts[6]=PP, parts[7]=费用, parts[8]=MAXPP, parts[9]=最大费用, parts[10]=HAND, parts[11]=手牌, parts[12]=FIELD, parts[13]=场面
+        //parts[0]=标记"P1", parts[1]=名字, [2]="HP", [3]=血量, [4]="MAXHP", [5]=最大血,[6]="PP", [7]=费用, [8]="MAXPP", [9]=最大费, [10]="HAND", [11]=手牌,[12]="FIELD", [13]=场面
+        //parts[14]=标记"P2", [15]=名字, [16]="HP", [17]=血量, [18]="MAXHP", [19]=最大血,[20]="PP", [21]=费用, [22]="MAXPP", [23]=最大费, [24]="HAND", [25]=手牌,[26]="FIELD", [27]=场面
+        //parts[28]="TURN", [29]=当前回合玩家, [30]="DECK1", [31]=玩家1牌堆,
+        //[32]="DECK2", [33]=玩家2牌堆, [34]="YOU", [35]="P1"或"P2"
         String p1Name = parts[1];
         String p1Hp = parts[3];
         String p1MaxHp = parts[5];
@@ -145,18 +149,18 @@ public class Client {
         if (hand == null || hand.isEmpty()) {
             return 0;
         }
-        return hand.split(",").length;
+        return hand.split(";").length;
     }
 
-    //格式化场面（编号列出所有随从，名称+攻/血）
+    //格式化场面
     private static String formatField(String field) {
         if (field == null || field.isEmpty()) {
             return "(空)";
         }
-        String[] minions = field.split(",");
+        String[] minions = field.split(";");
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < minions.length; i++) {
-            sb.append("[").append(i + 1).append("]").append(minions[i]);
+            sb.append("[").append(i + 1).append("]").append(minions[i].replaceAll(",\\d+", ""));
             if (i < minions.length - 1) {
                 sb.append("  ");
             }
@@ -169,10 +173,11 @@ public class Client {
         if (hand == null || hand.isEmpty()) {
             return "(空)";
         }
-        String[] cards = hand.split(",");
+        String[] cards = hand.split(";");
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < cards.length; i++) {
-            sb.append("[").append(i+1).append("]").append(cards[i]);
+            String display = cards[i].replaceAll(",[SADHM]\\)", ")");
+            sb.append("[").append(i+1).append("]").append(display);
             if (i < cards.length - 1) {
                 sb.append("  ");
             }

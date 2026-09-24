@@ -25,15 +25,18 @@ public class GameStateFormatter {
         if (player==p1){
             List<Card> hand1 = p1.getHand();
             for (int i = 0; i < hand1.size(); i++) {
-                sb.append(hand1.get(i).getName()).append("(费").append(hand1.get(i).getCost()).append(")");
-                if (i < hand1.size() - 1) sb.append(",");
+                Card card=hand1.get(i);
+                sb.append(card.getName())
+                        .append("(费").append(card.getCost())
+                        .append(",").append(card.getTypeCode()).append(")");
+                if (i < hand1.size() - 1) sb.append(";");
             }
         }else {
             sb.append(p1.getHand().size());
         }
 
 
-        //玩家1场面（格式：名称(攻击/血量)）
+        //玩家1场面
         sb.append("|FIELD|");
         List<Minion> field1 = p1.getField();
         for (int i = 0; i < field1.size(); i++) {
@@ -57,8 +60,11 @@ public class GameStateFormatter {
         if (player==p2){
             List<Card> hand2 = p2.getHand();
             for (int i = 0; i < hand2.size(); i++) {
-                sb.append(hand2.get(i).getName()).append("(费").append(hand2.get(i).getCost()).append(")");
-                if (i < hand2.size() - 1) sb.append(",");
+                Card card = hand2.get(i);
+                sb.append(card.getName())
+                        .append("(费").append(card.getCost())
+                        .append(",").append(card.getTypeCode()).append(")");
+                if (i < hand2.size() - 1) sb.append(";");
             }
         }else {
             sb.append(p2.getHand().size());

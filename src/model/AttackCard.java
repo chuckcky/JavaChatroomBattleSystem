@@ -2,13 +2,17 @@ package model;
 
 public class AttackCard extends Card {
 
-    public int damage;
+    private final int damage;
 
     public AttackCard(String name, int cost, int damage) {
         super(name, cost);
         this.damage = damage;
     }
 
+    @Override
+    public String getTypeCode() {
+        return "D";
+    }
 
     @Override
     public void execute(Player caster, Player target) {

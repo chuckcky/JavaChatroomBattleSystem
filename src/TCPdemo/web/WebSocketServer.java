@@ -18,7 +18,8 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.util.concurrent.atomic.AtomicInteger;
+
 
 /**
  * 极简WebSocket服务：处理HTTP握手，握手成功后交给ClientHandler。
@@ -28,6 +29,7 @@ public class WebSocketServer {
     /** RFC 6455规定的魔法字符串 */
     private static final String WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
     private static final int MAX_CONN = 50;
+    private final AtomicInteger onlineCount = new AtomicInteger(0);
 
     private final int port;
     private final RoomManager roomManager;
@@ -45,10 +47,26 @@ public class WebSocketServer {
         ExecutorService pool = Executors.newFixedThreadPool(MAX_CONN);
         while (true) {
             final Socket socket = ss.accept();
+            if (onlineCount.get() >= MAX_CONN) {
+                try{
+                    OutputStream out = socket.getOutputStream();
+                    out.write("HTTP/1.1 503 Service Unavailable\r\n\r\n服务器已满".getBytes());
+                    out.flush();
+                }catch (IOException ignored){
+                }finally {
+                    try { socket.close(); } catch (IOException ignored) {}
+                }
+                continue;
+            }
+            onlineCount.incrementAndGet();
             pool.execute(new Runnable() {
                 @Override
                 public void run() {
-                    handle(socket);
+                    try {
+                        handle(socket);
+                    }finally {
+                        onlineCount.decrementAndGet();
+                    }
                 }
             });
         }

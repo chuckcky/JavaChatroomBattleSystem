@@ -14,6 +14,10 @@ public class Minion extends Card{
         this.canAttack = false;
     }
 
+    @Override
+    public String getTypeCode() {
+        return "M";
+    }
 
     @Override
     public void execute(Player caster, Player target) {
